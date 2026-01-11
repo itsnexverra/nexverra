@@ -1,33 +1,24 @@
 {
-  "name": "nexverra-website",
+  "name": "backend",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
+  "main": "server.js",
   "scripts": {
-    "dev": "vite",
     "server": "node server.js",
-    "start": "concurrently \"npm:server\" \"npm:dev\"",
-    "build": "vite build",
-    "preview": "vite preview"
+    "start": "node server.js",
+    "build": "echo 'No build step required for backend'"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
-    "concurrently": "^8.2.2",
     "cors": "^2.8.5",
-    "dotenv": "^16.4.5",
-    "express": "^4.19.2",
+    "dotenv": "^16.6.1",
+    "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
-    "lucide-react": "^0.544.0",
-    "mongoose": "^8.5.1",
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1",
-    "react-hot-toast": "^2.6.0",
-    "react-router-dom": "^7.9.1"
+    "mongoose": "^8.19.1"
   },
-  "devDependencies": {
-    "@types/node": "^22.14.0",
-    "@vitejs/plugin-react": "^5.0.0",
-    "typescript": "~5.8.2",
-    "vite": "^6.3.6"
-  }
+  "description": "",
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
 }
