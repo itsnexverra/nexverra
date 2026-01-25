@@ -1,0 +1,20 @@
+{
+  "users": [
+    {
+      "id": "admin-id",
+      "email": "admin-demo@nexverra.com",
+      "password": "$2a$12$LWXf.7ufazd.qtPP9kfYAeENyboDWtotzoba4DMuiMizaB.cRB70e",
+      "fullName": "Demo Admin",
+      "role": "admin",
+      "isActive": true
+    }
+  ],
+  "orders": [],
+  "offers": {
+    "main-offer": {
+      "isActive": false,
+      "endTime": null
+    }
+  },
+  "chats": []
+}
