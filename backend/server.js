@@ -14,7 +14,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3000;
 
 // Path to constant.tsx for metadata storage
 const CONSTANT_FILE_PATH = path.resolve(process.cwd(), 'constant.tsx');
