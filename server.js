@@ -17,7 +17,7 @@ const PORT = process.env.PORT || 3000;
 // --- Configuration ---
 const FRONTEND_DOMAINS = [
   "https://nexverra.in", "https://localhost:10000",
-  "https://nexverra-website-1-t740.onrender.com"
+  "https://nexverra.up.railway.app/"
 ];
 
 // --- Middleware ---
@@ -27,8 +27,11 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10mb' }));
 
+
+
 // --- MongoDB Connection ---
 const MONGO_URI = process.env.MONGO_URI  || 'mongodb+srv://nexverra_db_user:8HnzQCgFqlPuzq50@cluster.jesf1md.mongodb.net/?retryWrites=true&w=majority&appName=Cluster';
+
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-default-jwt-secret';
 
@@ -36,7 +39,6 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-default-jwt-secret';
 const productSchema = new mongoose.Schema({
   title: { type: String, required: true },
   description: { type: String, required: true },
-  features: { type: [String], default: [] },
   images: [{ type: String, required: true }],
   price: { type: Number, required: true },
   category: { type: String, required: true },
@@ -105,18 +107,11 @@ const chatMessageSchema = new mongoose.Schema({
 }, { timestamps: true });
 const ChatMessage = mongoose.model('ChatMessage', chatMessageSchema);
 
+
 // --- Data Transformation ---
 const transformProduct = (productDoc) => {
-  if (!productDoc) return null;
-  const productObj = typeof productDoc.toObject === 'function' ? productDoc.toObject() : productDoc;
-  
-  productObj.id = productObj._id ? productObj._id.toString() : productObj.id;
-  
-  // Ensure features is always a clean array for the frontend
-  if (!productObj.features || !Array.isArray(productObj.features)) {
-      productObj.features = [];
-  }
-
+  const productObj = productDoc.toObject();
+  productObj.id = productObj._id.toString();
   if (productObj.downloadableFile && productObj.downloadableFile.fileName) {
       productObj.downloadableFileName = productObj.downloadableFile.fileName;
   }
@@ -151,6 +146,7 @@ const transformOrder = (orderDoc) => {
     delete orderObj.__v;
     return orderObj;
 };
+
 
 // --- Helper Functions ---
 const generateOrderId = async () => {
@@ -416,20 +412,11 @@ app.get('/api/products', addUserToRequest, async (req, res) => {
 
 app.post('/api/products', authenticateToken, authenticateAdmin, async (req, res) => {
   try {
-    const { title, description, features, images, price, category, type, downloadableFile } = req.body;
+    const { title, description, images, price, category, type, downloadableFile } = req.body;
     if (!title || !description || !images || !price || !category) {
       return res.status(400).json({ message: 'Missing required product fields' });
     }
-    const newProduct = new Product({ 
-        title, 
-        description, 
-        features: Array.isArray(features) ? features : [], 
-        images, 
-        price, 
-        category, 
-        type, 
-        downloadableFile 
-    });
+    const newProduct = new Product({ title, description, images, price, category, type, downloadableFile });
     const savedProduct = await newProduct.save();
     res.status(201).json(transformProduct(savedProduct));
   } catch (error) {
@@ -442,26 +429,15 @@ app.put('/api/products/:id', authenticateToken, authenticateAdmin, async (req, r
     const { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ message: 'Invalid product ID' });
     
-    // Destructure to sanitize incoming payload
-    const { wishlisted, id: frontendId, _id: mongoId, features, ...productData } = req.body;
+    const { wishlisted, id: frontendId, _id: mongoId, ...productData } = req.body;
     
-    const updatePayload = { 
-        ...productData,
-        features: Array.isArray(features) ? features : []
-    };
-    
-    if (req.body.downloadableFile === null) {
+    const updatePayload = { ...productData };
+    if (productData.downloadableFile === null) {
         updatePayload.$unset = { downloadableFile: 1 };
         delete updatePayload.downloadableFile;
-    } else if (req.body.downloadableFile) {
-        updatePayload.downloadableFile = req.body.downloadableFile;
     }
 
-    const updatedProduct = await Product.findByIdAndUpdate(
-        id, 
-        updatePayload, 
-        { new: true, runValidators: true }
-    );
+    const updatedProduct = await Product.findByIdAndUpdate(id, updatePayload, { new: true });
     
     if (!updatedProduct) return res.status(404).json({ message: 'Product not found' });
     res.json(transformProduct(updatedProduct));
@@ -516,6 +492,7 @@ app.delete('/api/users/wishlist/:productId', authenticateToken, async (req, res)
         res.status(500).json({ message: 'Error updating wishlist', error: error.message });
     }
 });
+
 
 // Offers
 app.get('/api/offer', async (req, res) => {
@@ -691,7 +668,7 @@ Details / Requirements: Order request with total amount ₹${savedOrder.planPric
     }
 });
 
-// Refined endpoint for Contact Bundle Logic
+// New endpoint for Contact Page
 app.post('/api/contact', async (req, res) => {
     const { userInfo, inquiry } = req.body;
     
@@ -723,12 +700,12 @@ app.post('/api/contact', async (req, res) => {
             responseToken = jwt.sign(responseUserPayload, JWT_SECRET, { expiresIn: '24h' });
         }
 
-        const isRealOrder = inquiry.plan && inquiry.plan !== "Other / General Inquiry";
+        const isRealPlan = inquiry.plan && inquiry.plan !== "Other / General Inquiry";
         let order = null;
 
-        if (isRealOrder) {
+        if (isRealPlan) {
             const newOrderId = await generateOrderId();
-            const orderData = {
+            const newOrder = new Order({
                 orderId: newOrderId,
                 user: user._id,
                 planTitle: inquiry.plan,
@@ -736,22 +713,14 @@ app.post('/api/contact', async (req, res) => {
                 details: inquiry.message,
                 status: 'Pending',
                 isProductOrder: false,
-                timeline: [{ status: 'Pending', description: 'Bundle request submitted via contact portal.' }]
-            };
-
-            // Link products if multiple IDs are provided in the bundle
-            if (inquiry.productIds && inquiry.productIds.length > 0) {
-                orderData.isProductOrder = true;
-                orderData.products = inquiry.productIds;
-            }
-
-            const newOrder = new Order(orderData);
+                timeline: [{ status: 'Pending', description: 'Order request submitted through contact form.' }]
+            });
             const savedOrder = await newOrder.save();
             order = transformOrder(savedOrder);
         }
 
-        const orderIdSuffix = order ? ` (Reference ID: #${order.orderId})` : '';
-        const productImageLine = inquiry.productImage ? `\nPreview Attachment: ${inquiry.productImage}` : '';
+        const orderIdSuffix = order ? ` (Order ID: #${order.orderId})` : '';
+        const productImageLine = inquiry.productImage ? `\nProduct Image: ${inquiry.productImage}` : '';
         
         const inquirySummary = `[AUTO_NOTIFICATION:INQUIRY]
 Full Name: ${userInfo.fullName}
@@ -764,7 +733,7 @@ Details / Requirements: ${inquiry.message}`;
         await sendAdminChatNotification(user._id, inquirySummary);
 
         res.status(201).json({
-            message: isRealOrder ? "Project bundle request submitted." : "Inquiry submitted successfully.",
+            message: isRealPlan ? "Order request submitted successfully." : "Inquiry submitted successfully.",
             user: responseUserPayload || constructUserPayload(user),
             token: responseToken,
             temporaryPassword,
@@ -1407,7 +1376,7 @@ app.delete('/api/admin/messages', authenticateToken, authenticateAdmin, async (r
 app.delete('/api/admin/chats/:userId', authenticateToken, authenticateAdmin, async (req, res) => {
     try {
         const { userId } = req.params;
-        if (!mongoose.Types.ObjectId.isValid(userId)) return res.status(400).json({ message: 'Invalid user ID.' });
+        if (!mongoose.Types.ObjectId.isValid(userId)) return res.status(400).json({ message: 'Invalid user ID' });
 
         const admins = await User.find({ role: 'admin' }).select('_id');
         const adminIds = admins.map(a => a._id);
@@ -1425,6 +1394,7 @@ app.delete('/api/admin/chats/:userId', authenticateToken, authenticateAdmin, asy
     }
 });
 
+
 // Serve frontend from frontend/dist
 app.use(express.static(path.join(__dirname, 'dist')));
 
@@ -1432,6 +1402,7 @@ app.use(express.static(path.join(__dirname, 'dist')));
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
+
 
 // --- Connect to DB and Start Server ---
 mongoose.connect(MONGO_URI)
